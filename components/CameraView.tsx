@@ -33,6 +33,7 @@ export default function CameraView() {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const sampleAreaRef = useRef<SampleArea | null>(null);
+	const motionHistoryRef = useRef<number[]>([]);
 
 	const [stream, setStream] = useState<MediaStream | null>(null);
 	const [colors, setColors] = useState<CubeColor[]>(
@@ -57,6 +58,8 @@ export default function CameraView() {
 
 	const [isMoving, setIsMoving] = useState(false);
 	const [faceChangeCount, setFaceChangeCount] = useState(0);
+
+	const [motionLevel, setMotionLevel] = useState(0);
 
 	const previousFrameRef = useRef<ImageData | null>(null);
 	const lastMotionAtRef = useRef(0);
@@ -158,6 +161,12 @@ export default function CameraView() {
 		const canvas = canvasRef.current;
 
 		if (!video || !canvas) return;
+
+		motionHistoryRef.current = [];
+		previousFrameRef.current = null;
+		lastMotionAtRef.current = 0;
+		motionActiveRef.current = false;
+		lastStableColorsRef.current = null;
 
 		const context = canvas.getContext("2d", {
 			willReadFrequently: true,
@@ -261,12 +270,26 @@ export default function CameraView() {
 			const now = performance.now();
 
 			if (previousFrame) {
-				const motionRatio = calculateMotionRatio(
+				const currentMotion = calculateMotionRatio(
 					motionFrame,
 					previousFrame
 				);
 
-				if (motionRatio > 0.28) {
+				motionHistoryRef.current.push(currentMotion);
+
+				if (motionHistoryRef.current.length > 5) {
+					motionHistoryRef.current.shift();
+				}
+
+				const motionRatio =
+					motionHistoryRef.current.reduce(
+						(total, value) => total + value,
+						0
+					) / motionHistoryRef.current.length;
+
+				setMotionLevel(Math.min(100, Math.round(motionRatio * 200)));
+
+				if (motionRatio > 0.25) {
 					lastMotionAtRef.current = now;
 
 					if (!motionActiveRef.current) {
@@ -275,7 +298,8 @@ export default function CameraView() {
 					}
 				} else if (
 					motionActiveRef.current &&
-					now - lastMotionAtRef.current > 600
+					now - lastMotionAtRef.current > 600 &&
+					motionRatio < 0.12
 				) {
 					motionActiveRef.current = false;
 					setIsMoving(false);
@@ -347,6 +371,30 @@ export default function CameraView() {
 						<span className="text-xs font-medium text-white">
 							{isMoving ? "Moving" : "Stable"}
 						</span>
+					</div>
+
+					<div className="absolute left-4 top-16 w-36 rounded-xl border border-white/10 bg-black/65 p-3 backdrop-blur-md">
+						<div className="mb-2 flex items-center justify-between">
+							<span className="text-[10px] font-medium uppercase tracking-wider text-gray-300">
+								Motion
+							</span>
+
+							<span className="text-[10px] tabular-nums text-gray-400">
+								{motionLevel}%
+							</span>
+						</div>
+
+						<div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+							<div
+								className={`h-full rounded-full transition-all duration-150 ${motionLevel >= 50
+										? "bg-red-400"
+										: motionLevel >= 25
+											? "bg-amber-400"
+											: "bg-green-400"
+									}`}
+								style={{ width: `${motionLevel}%` }}
+							/>
+						</div>
 					</div>
 
 					<div className="absolute right-4 top-4 w-28 rounded-xl border border-white/10 bg-black/65 p-2 shadow-2xl backdrop-blur-md sm:right-6 sm:top-6 sm:w-36">
