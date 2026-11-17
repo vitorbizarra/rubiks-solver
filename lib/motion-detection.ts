@@ -1,7 +1,13 @@
 export function calculateMotionRatio(
 	current: ImageData,
 	previous: ImageData,
-	sampleStep = 4
+	sampleStep = 4,
+	excludedArea?: {
+		x: number;
+		y: number;
+		size: number;
+	},
+	differenceThreshold = 50
 ): number {
 	if (
 		current.width !== previous.width ||
@@ -15,6 +21,16 @@ export function calculateMotionRatio(
 
 	for (let y = 0; y < current.height; y += sampleStep) {
 		for (let x = 0; x < current.width; x += sampleStep) {
+			if (
+				excludedArea &&
+				x >= excludedArea.x &&
+				x < excludedArea.x + excludedArea.size &&
+				y >= excludedArea.y &&
+				y < excludedArea.y + excludedArea.size
+			) {
+				continue;
+			}
+
 			const index = (y * current.width + x) * 4;
 
 			const redDifference = Math.abs(
@@ -30,7 +46,7 @@ export function calculateMotionRatio(
 			const difference =
 				(redDifference + greenDifference + blueDifference) / 3;
 
-			if (difference > 50) {
+			if (difference > differenceThreshold) {
 				changedPixels++;
 			}
 

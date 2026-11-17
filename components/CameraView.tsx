@@ -34,6 +34,12 @@ export default function CameraView() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const sampleAreaRef = useRef<SampleArea | null>(null);
 	const motionHistoryRef = useRef<number[]>([]);
+	const previousFrameRef = useRef<ImageData | null>(null);
+	const lastMotionAtRef = useRef(0);
+	const motionActiveRef = useRef(false);
+	const lastStableColorsRef = useRef<CubeColor[] | null>(null);
+	const previousBackgroundFrameRef = useRef<ImageData | null>(null);
+	const motionStartCountRef = useRef(0);
 
 	const [stream, setStream] = useState<MediaStream | null>(null);
 	const [colors, setColors] = useState<CubeColor[]>(
@@ -60,11 +66,7 @@ export default function CameraView() {
 	const [faceChangeCount, setFaceChangeCount] = useState(0);
 
 	const [motionLevel, setMotionLevel] = useState(0);
-
-	const previousFrameRef = useRef<ImageData | null>(null);
-	const lastMotionAtRef = useRef(0);
-	const motionActiveRef = useRef(false);
-	const lastStableColorsRef = useRef<CubeColor[] | null>(null);
+	const [isCameraMoving, setIsCameraMoving] = useState(false);
 
 	const identifiedCount = colors.filter(
 		(color) => color !== "unknown"
@@ -167,6 +169,8 @@ export default function CameraView() {
 		lastMotionAtRef.current = 0;
 		motionActiveRef.current = false;
 		lastStableColorsRef.current = null;
+		previousBackgroundFrameRef.current = null;
+		motionStartCountRef.current = 0;
 
 		const context = canvas.getContext("2d", {
 			willReadFrequently: true,
@@ -266,62 +270,113 @@ export default function CameraView() {
 				Math.floor(squareSize)
 			);
 
+			const backgroundFrame = context.getImageData(
+				0,
+				0,
+				width,
+				height
+			);
+
 			const previousFrame = previousFrameRef.current;
+			const previousBackgroundFrame = previousBackgroundFrameRef.current;
 			const now = performance.now();
 
-			if (previousFrame) {
-				const currentMotion = calculateMotionRatio(
+			if (previousFrame && previousBackgroundFrame) {
+				const cubeMotion = calculateMotionRatio(
 					motionFrame,
-					previousFrame
+					previousFrame,
+					2,
+					undefined,
+					40
 				);
 
-				motionHistoryRef.current.push(currentMotion);
-
-				if (motionHistoryRef.current.length > 5) {
-					motionHistoryRef.current.shift();
-				}
-
-				const motionRatio =
-					motionHistoryRef.current.reduce(
-						(total, value) => total + value,
-						0
-					) / motionHistoryRef.current.length;
-
-				setMotionLevel(Math.min(100, Math.round(motionRatio * 200)));
-
-				if (motionRatio > 0.25) {
-					lastMotionAtRef.current = now;
-
-					if (!motionActiveRef.current) {
-						motionActiveRef.current = true;
-						setIsMoving(true);
+				const backgroundMotion = calculateMotionRatio(
+					backgroundFrame,
+					previousBackgroundFrame,
+					8,
+					{
+						x: left,
+						y: top,
+						size: squareSize,
 					}
-				} else if (
-					motionActiveRef.current &&
-					now - lastMotionAtRef.current > 600 &&
-					motionRatio < 0.12
-				) {
+				);
+
+				const cameraMoving = backgroundMotion > 0.08;
+
+				setIsCameraMoving(cameraMoving);
+
+				if (cameraMoving) {
+					motionHistoryRef.current = [];
 					motionActiveRef.current = false;
-					setIsMoving(false);
+					lastMotionAtRef.current = now;
+					motionStartCountRef.current = 0;
 
-					if (
-						isNewFace(
-							lastStableColorsRef.current,
-							detectedColors
-						)
-					) {
-						setFaceChangeCount((count) => count + 1);
+					setIsMoving(false);
+					lastStableColorsRef.current = detectedColors;
+					setMotionLevel(
+						Math.min(100, Math.round(backgroundMotion * 200))
+					);
+				} else {
+					motionHistoryRef.current.push(cubeMotion);
+
+					if (motionHistoryRef.current.length > 5) {
+						motionHistoryRef.current.shift();
 					}
 
-					lastStableColorsRef.current = detectedColors;
-				} else if (!motionActiveRef.current) {
-					lastStableColorsRef.current = detectedColors;
+					const motionRatio =
+						motionHistoryRef.current.reduce(
+							(total, value) => total + value,
+							0
+						) / motionHistoryRef.current.length;
+
+					setMotionLevel(
+						Math.min(100, Math.round(motionRatio * 200))
+					);
+
+					if (motionRatio > 0.10) {
+						motionStartCountRef.current++;
+						lastMotionAtRef.current = now;
+
+						if (
+							!motionActiveRef.current &&
+							motionStartCountRef.current >= 2
+						) {
+							motionActiveRef.current = true;
+							setIsMoving(true);
+						}
+					} else {
+						motionStartCountRef.current = 0;
+
+						if (
+							motionActiveRef.current &&
+							now - lastMotionAtRef.current > 800 &&
+							motionRatio < 0.04
+						) {
+							motionActiveRef.current = false;
+							setIsMoving(false);
+
+							if (
+								isNewFace(
+									lastStableColorsRef.current,
+									detectedColors
+								)
+							) {
+								setFaceChangeCount((count) => count + 1);
+							}
+
+							lastStableColorsRef.current = detectedColors;
+						} else if (!motionActiveRef.current) {
+							lastStableColorsRef.current = detectedColors;
+						}
+					}
 				}
 			} else {
 				lastStableColorsRef.current = detectedColors;
+				setIsCameraMoving(false);
 			}
 
 			previousFrameRef.current = motionFrame;
+			previousBackgroundFrameRef.current = backgroundFrame;
 
 			setColors(detectedColors);
 		};
@@ -363,13 +418,18 @@ export default function CameraView() {
 
 					<div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-2 backdrop-blur-md">
 						<span
-							className={`h-2 w-2 rounded-full ${isMoving
-								? "animate-pulse bg-amber-400"
-								: "bg-green-400"
-								}`}
+							className={`h-2 w-2 rounded-full ${isCameraMoving
+								? "bg-amber-300"
+								: isMoving
+									? "bg-red-300"
+									: "bg-green-300 animate-pulse"}`}
 						/>
 						<span className="text-xs font-medium text-white">
-							{isMoving ? "Moving" : "Stable"}
+							{isCameraMoving
+								? "Camera moving"
+								: isMoving
+									? "Cube moving"
+									: "Stable"}
 						</span>
 					</div>
 
@@ -387,10 +447,10 @@ export default function CameraView() {
 						<div className="h-1.5 overflow-hidden rounded-full bg-white/10">
 							<div
 								className={`h-full rounded-full transition-all duration-150 ${motionLevel >= 50
-										? "bg-red-400"
-										: motionLevel >= 25
-											? "bg-amber-400"
-											: "bg-green-400"
+									? "bg-red-400"
+									: motionLevel >= 25
+										? "bg-amber-400"
+										: "bg-green-400"
 									}`}
 								style={{ width: `${motionLevel}%` }}
 							/>
