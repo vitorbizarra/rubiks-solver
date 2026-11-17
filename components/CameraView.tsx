@@ -172,6 +172,8 @@ export default function CameraView() {
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 
+	const [mirrored, setMirrored] = useState(true);
+
 	async function startCamera() {
 		try {
 			setError("");
@@ -299,6 +301,9 @@ export default function CameraView() {
 							playsInline
 							muted
 							className="h-full w-full object-cover"
+							style={{
+								transform: mirrored ? "scaleX(-1)" : "none",
+							}}
 						/>
 
 						<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -380,7 +385,7 @@ export default function CameraView() {
 				<p className="text-sm text-red-500">{error}</p>
 			)}
 
-			<div className="flex justify-center">
+			<div className="flex justify-center gap-2">
 				{!stream ? (
 					<button
 						onClick={startCamera}
@@ -397,6 +402,13 @@ export default function CameraView() {
 						Stop camera
 					</button>
 				)}
+
+				<button
+					onClick={() => setMirrored((current) => !current)}
+					className="rounded-lg border border-gray-600 px-5 py-3 font-medium transition hover:bg-gray-800"
+				>
+					{mirrored ? "Disable mirroring" : "Mirror webcam"}
+				</button>
 			</div>
 		</div>
 	);
