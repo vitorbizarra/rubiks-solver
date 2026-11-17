@@ -13,9 +13,9 @@ export type FaceGuide = {
 export const FACE_ORDER: CubeFace[] = [
 	"U",
 	"F",
-	"R",
-	"B",
 	"L",
+	"B",
+	"R",
 	"D",
 ];
 
