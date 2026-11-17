@@ -293,7 +293,12 @@ export default function CameraView() {
 							</span>
 						</div>
 
-						<div className="grid grid-cols-3 gap-1">
+						<div
+							className="grid grid-cols-3 gap-1"
+							style={{
+								transform: mirrored ? "scaleX(-1)" : "none",
+							}}
+						>
 							{colors.map((color, index) => (
 								<div
 									key={index}
@@ -316,7 +321,10 @@ export default function CameraView() {
 						<button
 							onClick={() => setMirrored((current) => !current)}
 							title="Toggle mirroring"
-							className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/65 text-white backdrop-blur-md transition hover:bg-black/85"
+							className={`flex h-11 w-11 items-center justify-center text-white rounded-full border backdrop-blur-md transition ${mirrored
+								? "border-green-400/50 bg-green-500/30 hover:bg-green-500/40"
+								: "border-white/10 bg-black/65 hover:bg-black/85"
+								}`}
 						>
 							<svg
 								viewBox="0 0 24 24"
