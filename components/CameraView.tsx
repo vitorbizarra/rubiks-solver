@@ -84,6 +84,7 @@ export default function CameraView() {
 		currentGuide,
 		canCaptureFace,
 		cubeValid,
+		validationErrors,
 		captureFace,
 		resetLastFace,
 		resetFaceCapture,
@@ -517,6 +518,43 @@ export default function CameraView() {
 							liveColors={colors}
 							mirrored={mirrored}
 						/>
+
+						{capturedFaces.length === 6 && (
+							<div
+								className={`mt-3 rounded-lg border p-3 ${cubeValid
+										? "border-green-500/30 bg-green-500/10"
+										: "border-red-500/30 bg-red-500/10"
+									}`}
+							>
+								<div className="flex items-center gap-2">
+									<span
+										className={`h-2 w-2 rounded-full ${cubeValid ? "bg-green-400" : "bg-red-400"
+											}`}
+									/>
+									<span
+										className={`text-xs font-semibold ${cubeValid ? "text-green-300" : "text-red-300"
+											}`}
+									>
+										{cubeValid
+											? "Basic validation passed"
+											: "Cube validation failed"}
+									</span>
+								</div>
+
+								{!cubeValid && (
+									<ul className="mt-2 space-y-1">
+										{validationErrors.map((error) => (
+											<li
+												key={error}
+												className="text-[10px] text-red-200"
+											>
+												{error}
+											</li>
+										))}
+									</ul>
+								)}
+							</div>
+						)}
 
 						<div className="mt-4 border-t border-white/10 pt-3">
 							<div className="mb-3 flex items-center justify-between">

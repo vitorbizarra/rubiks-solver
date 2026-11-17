@@ -10,22 +10,16 @@ import {
 	FACE_ORDER,
 	getFaceGuide,
 	isCompleteFace,
-	type CubeFace,
 } from "@/lib/face-capture-guide";
 
 export function useFaceCapture(colors: CubeColor[]) {
 	const [capturedFaces, setCapturedFaces] = useState<CubeColor[][]>([]);
-	const [editingFace, setEditingFace] = useState<CubeFace | null>(null);
 
-	const currentIndex = editingFace
-		? FACE_ORDER.indexOf(editingFace)
-		: capturedFaces.length;
-
-	const currentFace = FACE_ORDER[currentIndex];
+	const currentFace = FACE_ORDER[capturedFaces.length];
 	const currentGuide = getFaceGuide(currentFace);
 
 	const canCaptureFace =
-		isCompleteFace(colors) && currentIndex < 6;
+		isCompleteFace(colors) && capturedFaces.length < 6;
 
 	const capturedColorCounts = CALIBRATION_COLORS.map((color) => ({
 		color,
@@ -45,6 +39,26 @@ export function useFaceCapture(colors: CubeColor[]) {
 		({ count }) => count === 9
 	);
 
+	const validationErrors: string[] = [];
+
+	if (capturedFaces.length < 6) {
+		validationErrors.push("Capture all six faces.");
+	} else {
+		if (!centersValid) {
+			validationErrors.push(
+				"Each face must have a different center color."
+			);
+		}
+
+		for (const { color, count } of capturedColorCounts) {
+			if (count !== 9) {
+				validationErrors.push(
+					`${color} must appear exactly 9 times. Currently: ${count}.`
+				);
+			}
+		}
+	}
+
 	const cubeValid =
 		capturedFaces.length === 6 &&
 		centersValid &&
@@ -53,33 +67,18 @@ export function useFaceCapture(colors: CubeColor[]) {
 	function captureFace() {
 		if (!canCaptureFace) return;
 
-		setCapturedFaces((current) => {
-			const updated = [...current];
-			updated[currentIndex] = [...colors];
-			return updated;
-		});
-
-		setEditingFace(null);
+		setCapturedFaces((current) => [
+			...current,
+			[...colors],
+		]);
 	}
 
-	function editFace(face: CubeFace) {
-		const index = FACE_ORDER.indexOf(face);
-
-		if (index < 0 || index >= capturedFaces.length) return;
-
-		setEditingFace(face);
+	function resetLastFace() {
+		setCapturedFaces((current) => current.slice(0, -1));
 	}
 
 	function resetFaceCapture() {
 		setCapturedFaces([]);
-		setEditingFace(null);
-	}
-
-	function resetLastFace() {
-		if (capturedFaces.length === 0) return;
-
-		setCapturedFaces((current) => current.slice(0, -1));
-		setEditingFace(null);
 	}
 
 	return {
@@ -91,10 +90,9 @@ export function useFaceCapture(colors: CubeColor[]) {
 		centersValid,
 		colorCountsValid,
 		cubeValid,
-		editingFace,
+		validationErrors,
 		captureFace,
-		editFace,
-		resetFaceCapture,
 		resetLastFace,
+		resetFaceCapture,
 	};
 }
