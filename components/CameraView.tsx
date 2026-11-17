@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { CubeNet } from "@/components/CubeNet";
+
 import {
 	CALIBRATION_COLORS,
 	COLOR_INFO,
@@ -28,6 +30,10 @@ import {
 	calculateMotionRatio,
 	isNewFace,
 } from "@/lib/motion-detection";
+
+import { FACE_ORDER } from "@/lib/face-capture-guide";
+
+import { useFaceCapture } from "@/hooks/use-face-capture";
 
 export default function CameraView() {
 	const videoRef = useRef<HTMLVideoElement>(null);
@@ -71,6 +77,17 @@ export default function CameraView() {
 	const identifiedCount = colors.filter(
 		(color) => color !== "unknown"
 	).length;
+
+	const {
+		capturedFaces,
+		currentFace,
+		currentGuide,
+		canCaptureFace,
+		cubeValid,
+		captureFace,
+		resetLastFace,
+		resetFaceCapture,
+	} = useFaceCapture(colors);
 
 	useEffect(() => {
 		saveCalibration(calibration);
@@ -457,10 +474,10 @@ export default function CameraView() {
 						</div>
 					</div>
 
-					<div className="absolute right-4 top-4 w-28 rounded-xl border border-white/10 bg-black/65 p-2 shadow-2xl backdrop-blur-md sm:right-6 sm:top-6 sm:w-36">
+					<div className="absolute right-4 top-4 w-64 rounded-xl border border-white/10 bg-black/75 p-3 shadow-2xl backdrop-blur-md sm:right-6 sm:top-6 sm:w-72">
 						<div className="mb-2 flex items-center justify-between">
 							<span className="text-[10px] font-semibold uppercase tracking-wider text-gray-300">
-								Colors
+								Cube scanner
 							</span>
 
 							<span className="text-[10px] tabular-nums text-gray-400">
@@ -472,19 +489,102 @@ export default function CameraView() {
 							Face changes: {faceChangeCount}
 						</div>
 
-						<div
-							className="grid grid-cols-3 gap-1"
-							style={{
-								transform: mirrored ? "scaleX(-1)" : "none",
-							}}
-						>
-							{colors.map((color, index) => (
-								<div
-									key={index}
-									title={COLOR_INFO[color].label}
-									className={`aspect-square rounded-sm border border-white/10 ${COLOR_INFO[color].className}`}
-								/>
-							))}
+						{currentGuide && (
+							<div className="mb-3">
+								<div className="mb-1 flex items-center justify-between">
+									<span className="text-xs font-semibold text-white">
+										{currentGuide.title}
+									</span>
+
+									<span className="text-xs font-medium text-blue-400">
+										{currentFace}
+									</span>
+								</div>
+
+								<p className="text-[11px] leading-relaxed text-gray-200">
+									{currentGuide.instruction}
+								</p>
+
+								<p className="mt-1 text-[10px] leading-relaxed text-gray-400">
+									{currentGuide.orientation}
+								</p>
+							</div>
+						)}
+
+						<CubeNet
+							capturedFaces={capturedFaces}
+							currentFace={currentFace}
+							liveColors={colors}
+							mirrored={mirrored}
+						/>
+
+						<div className="mt-4 border-t border-white/10 pt-3">
+							<div className="mb-3 flex items-center justify-between">
+								<span className="text-[10px] font-semibold uppercase tracking-wider text-gray-300">
+									Face capture
+								</span>
+
+								<span className="text-xs tabular-nums text-gray-400">
+									{capturedFaces.length}/6
+								</span>
+							</div>
+
+							<div className="mb-3 flex gap-1">
+								{FACE_ORDER.map((face, index) => (
+									<div
+										key={face}
+										className={`flex h-7 flex-1 items-center justify-center rounded-md text-xs font-semibold ${index < capturedFaces.length
+											? "bg-green-500/30 text-green-300"
+											: index === capturedFaces.length
+												? "border border-white/40 bg-white/15 text-white"
+												: "bg-white/5 text-gray-500"
+											}`}
+									>
+										{face}
+									</div>
+								))}
+							</div>
+
+							{capturedFaces.length < 6 ? (
+								<>
+									<p className="mb-3 text-xs text-gray-300">
+										Waiting for all 9 colors to be recognized.
+									</p>
+
+									<div className="mb-3 flex flex-wrap gap-2">
+										<button
+											onClick={captureFace}
+											disabled={!canCaptureFace}
+											className="w-full rounded-lg bg-white px-3 py-2.5 text-xs font-semibold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-30"
+										>
+											Capture {currentFace}
+										</button>
+
+										<button
+											onClick={resetLastFace}
+											disabled={capturedFaces.length === 0}
+											className="w-full rounded-lg border border-white/20 px-3 py-2 text-xs text-gray-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+										>
+											Reset last face
+										</button>
+									</div>
+								</>
+							) : (
+								<div className="space-y-2">
+									<p className={`text-xs font-semibold ${cubeValid ? "text-green-300" : "text-red-300"}`}>
+										{cubeValid
+											? "Cube data validated"
+											: "Cube data needs correction"}
+									</p>
+
+									<button
+										onClick={resetFaceCapture}
+										className="w-full rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 transition hover:bg-white/10"
+									>
+										Reset capture
+									</button>
+								</div>
+							)}
 						</div>
 					</div>
 
