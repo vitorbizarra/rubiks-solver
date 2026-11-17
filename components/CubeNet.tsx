@@ -15,7 +15,6 @@ type CubeNetProps = {
   capturedFaces: CubeColor[][];
   currentFace?: CubeFace;
   liveColors: CubeColor[];
-  mirrored: boolean;
 };
 
 const NET_LAYOUT: (CubeFace | null)[][] = [
@@ -36,8 +35,7 @@ const FACE_LABELS: Record<CubeFace, string> = {
 export function CubeNet({
   capturedFaces,
   currentFace,
-  liveColors,
-  mirrored
+  liveColors
 }: CubeNetProps) {
   function getCapturedFace(face: CubeFace) {
     return capturedFaces[FACE_ORDER.indexOf(face)];
@@ -99,12 +97,7 @@ export function CubeNet({
                   </span>
                 </div>
 
-                <div
-                  className="grid grid-cols-3 gap-[2px]"
-                  style={{
-                    transform: mirrored ? "scaleX(-1)" : "none",
-                  }}
-                >
+                <div className="grid grid-cols-3 gap-[2px]">
                   {Array.from({ length: 9 }, (_, index) => {
                     const color: CubeColor =
                       displayedColors[index] ?? "unknown";

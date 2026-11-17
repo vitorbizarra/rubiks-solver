@@ -54,7 +54,6 @@ export default function CameraView() {
 
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
-	const [mirrored, setMirrored] = useState(true);
 
 	const [calibration, setCalibration] =
 		useState<CalibrationSettings>(() =>
@@ -231,6 +230,7 @@ export default function CameraView() {
 				sourceHeight = video.videoWidth / targetRatio;
 				sourceY = (video.videoHeight - sourceHeight) / 2;
 			}
+			
 
 			context.drawImage(
 				video,
@@ -416,9 +416,6 @@ export default function CameraView() {
 						playsInline
 						muted
 						className="absolute inset-0 h-full w-full object-cover"
-						style={{
-							transform: mirrored ? "scaleX(-1)" : "none",
-						}}
 					/>
 
 					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -516,7 +513,6 @@ export default function CameraView() {
 							capturedFaces={capturedFaces}
 							currentFace={currentFace}
 							liveColors={colors}
-							mirrored={mirrored}
 						/>
 
 						{capturedFaces.length === 6 && (
@@ -633,26 +629,6 @@ export default function CameraView() {
 						>
 							<span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
 							Stop
-						</button>
-
-						<button
-							onClick={() => setMirrored((current) => !current)}
-							title="Toggle mirroring"
-							className={`flex h-11 w-11 items-center justify-center text-white rounded-full border backdrop-blur-md transition ${mirrored
-								? "border-green-400/50 bg-green-500/30 hover:bg-green-500/40"
-								: "border-white/10 bg-black/65 hover:bg-black/85"
-								}`}
-						>
-							<svg
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="1.7"
-								className="h-5 w-5"
-							>
-								<path d="M12 3v18M5 7l-3 5 3 5M19 7l3 5-3 5" />
-								<path d="M7 5H5v14h2M17 5h2v14h-2" />
-							</svg>
 						</button>
 					</div>
 
