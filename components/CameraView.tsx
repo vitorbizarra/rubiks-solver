@@ -1,137 +1,33 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 
-type CubeColor =
-	| "white"
-	| "yellow"
-	| "red"
-	| "orange"
-	| "green"
-	| "blue"
-	| "unknown";
+import {
+	CALIBRATION_COLORS,
+	COLOR_INFO,
+	DEFAULT_CALIBRATION,
+	type CalibrationSettings,
+	type CalibratableColor,
+	type CubeColor,
+	type SampleArea,
+} from "@/lib/color-types";
 
-const COLOR_INFO: Record<
-	CubeColor,
-	{ label: string; className: string }
-> = {
-	white: {
-		label: "White",
-		className: "bg-white",
-	},
-	yellow: {
-		label: "Yellow",
-		className: "bg-yellow-400",
-	},
-	red: {
-		label: "Red",
-		className: "bg-red-600",
-	},
-	orange: {
-		label: "Orange",
-		className: "bg-orange-500",
-	},
-	green: {
-		label: "Green",
-		className: "bg-green-600",
-	},
-	blue: {
-		label: "Blue",
-		className: "bg-blue-600",
-	},
-	unknown: {
-		label: "Unknown",
-		className: "bg-gray-600",
-	},
-};
+import {
+	getRingSamples,
+	identifyColor,
+} from "@/lib/color-detection";
 
-function identifyColor(
-	context: CanvasRenderingContext2D,
-	x: number,
-	y: number,
-	size: number
-): CubeColor {
-	const image = context.getImageData(
-		Math.round(x),
-		Math.round(y),
-		Math.max(1, Math.round(size)),
-		Math.max(1, Math.round(size))
-	);
-
-	const pixels = image.data;
-
-	const votes: Record<string, number> = {
-		white: 0,
-		yellow: 0,
-		orange: 0,
-		red: 0,
-		green: 0,
-		blue: 0,
-	};
-
-	for (let i = 0; i < pixels.length; i += 4) {
-		const r = pixels[i] / 255;
-		const g = pixels[i + 1] / 255;
-		const b = pixels[i + 2] / 255;
-
-		const max = Math.max(r, g, b);
-		const min = Math.min(r, g, b);
-		const delta = max - min;
-
-		const saturation = max === 0 ? 0 : delta / max;
-		const brightness = max;
-
-		if (brightness < 0.15) continue;
-
-		if (saturation < 0.2 && brightness > 0.6) {
-			votes.white++;
-			continue;
-		}
-
-		if (saturation < 0.3) continue;
-
-		let hue = 0;
-
-		if (delta !== 0) {
-			if (max === r) {
-				hue = 60 * (((g - b) / delta) % 6);
-			} else if (max === g) {
-				hue = 60 * ((b - r) / delta + 2);
-			} else {
-				hue = 60 * ((r - g) / delta + 4);
-			}
-		}
-
-		if (hue < 0) hue += 360;
-
-		if (hue < 12 || hue >= 345) {
-			votes.red++;
-		} else if (hue < 38) {
-			votes.orange++;
-		} else if (hue < 72) {
-			votes.yellow++;
-		} else if (hue < 165) {
-			votes.green++;
-		} else if (hue < 260) {
-			votes.blue++;
-		}
-	}
-
-	const bestColor = Object.entries(votes).reduce(
-		(best, current) =>
-			current[1] > best[1] ? current : best,
-		["unknown", 0] as [string, number]
-	);
-
-	if (bestColor[1] < 3) return "unknown";
-
-	return bestColor[0] as CubeColor;
-}
+import {
+	calibrateColor,
+	loadCalibration,
+	saveCalibration,
+	resetCalibration as getDefaultCalibration,
+} from "@/lib/color-calibration";
 
 export default function CameraView() {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const sampleAreaRef = useRef<SampleArea | null>(null);
 
 	const [stream, setStream] = useState<MediaStream | null>(null);
 	const [colors, setColors] = useState<CubeColor[]>(
@@ -142,9 +38,25 @@ export default function CameraView() {
 	const [loading, setLoading] = useState(false);
 	const [mirrored, setMirrored] = useState(true);
 
+	const [calibration, setCalibration] =
+		useState<CalibrationSettings>(() =>
+			typeof window === "undefined"
+				? DEFAULT_CALIBRATION
+				: loadCalibration()
+		);
+
+	const [calibrationOpen, setCalibrationOpen] = useState(false);
+	const [selectedColor, setSelectedColor] =
+		useState<CalibratableColor>("red");
+	const [calibrationMessage, setCalibrationMessage] = useState("");
+
 	const identifiedCount = colors.filter(
 		(color) => color !== "unknown"
 	).length;
+
+	useEffect(() => {
+		saveCalibration(calibration);
+	}, [calibration]);
 
 	async function startCamera() {
 		try {
@@ -164,7 +76,6 @@ export default function CameraView() {
 			setStream(mediaStream);
 		} catch (err) {
 			console.error(err);
-
 			setError(
 				"Failed to access the camera. Check your permissions."
 			);
@@ -175,9 +86,43 @@ export default function CameraView() {
 
 	function stopCamera() {
 		stream?.getTracks().forEach((track) => track.stop());
-
 		setStream(null);
 		setColors(Array(9).fill("unknown"));
+	}
+
+	function captureCalibration() {
+		const canvas = canvasRef.current;
+		const area = sampleAreaRef.current;
+
+		if (!canvas || !area) {
+			setCalibrationMessage("Camera is not ready yet.");
+			return;
+		}
+
+		const context = canvas.getContext("2d", {
+			willReadFrequently: true,
+		});
+
+		if (!context) return;
+
+		const samples = getRingSamples(context, area);
+
+		const result = calibrateColor(
+			calibration,
+			selectedColor,
+			samples
+		);
+
+		if (result.calibration) {
+			setCalibration(result.calibration);
+		}
+
+		setCalibrationMessage(result.message);
+	}
+
+	function resetCalibration() {
+		setCalibration(getDefaultCalibration());
+		setCalibrationMessage("Default calibration restored.");
 	}
 
 	useEffect(() => {
@@ -222,8 +167,10 @@ export default function CameraView() {
 				width * (window.innerHeight / window.innerWidth)
 			);
 
-			canvas.width = width;
-			canvas.height = height;
+			if (canvas.width !== width || canvas.height !== height) {
+				canvas.width = width;
+				canvas.height = height;
+			}
 
 			const targetRatio = width / height;
 			const sourceRatio = video.videoWidth / video.videoHeight;
@@ -254,32 +201,38 @@ export default function CameraView() {
 			);
 
 			const squareSize = Math.min(
-				width * 0.48,
-				height * 0.85
+				width * 0.20,
+				height * 0.50
 			);
 
 			const left = (width - squareSize) / 2;
 			const top = (height - squareSize) / 2;
 
 			const cellSize = squareSize / 3;
-			const sampleSize = cellSize * 0.35;
+			const sampleSize = cellSize * 0.92;
 
 			const detectedColors: CubeColor[] = [];
 
 			for (let row = 0; row < 3; row++) {
 				for (let col = 0; col < 3; col++) {
-					const x =
-						left +
-						col * cellSize +
-						(cellSize - sampleSize) / 2;
+					const area: SampleArea = {
+						x:
+							left +
+							col * cellSize +
+							(cellSize - sampleSize) / 2,
+						y:
+							top +
+							row * cellSize +
+							(cellSize - sampleSize) / 2,
+						size: sampleSize,
+					};
 
-					const y =
-						top +
-						row * cellSize +
-						(cellSize - sampleSize) / 2;
+					if (row === 1 && col === 1) {
+						sampleAreaRef.current = area;
+					}
 
 					detectedColors.push(
-						identifyColor(context, x, y, sampleSize)
+						identifyColor(context, area, calibration)
 					);
 				}
 			}
@@ -287,12 +240,12 @@ export default function CameraView() {
 			setColors(detectedColors);
 		};
 
-		const interval = window.setInterval(scanFrame, 150);
+		const interval = window.setInterval(scanFrame, 120);
 
 		scanFrame();
 
 		return () => window.clearInterval(interval);
-	}, [stream]);
+	}, [stream, calibration]);
 
 	return (
 		<div className="fixed inset-0 overflow-hidden bg-black">
@@ -310,7 +263,7 @@ export default function CameraView() {
 					/>
 
 					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-						<div className="aspect-square w-[min(48vw,85vh)] border border-green-400/80">
+						<div className="aspect-square w-[min(20vw,50vh)] border border-green-400/80">
 							<div className="grid h-full w-full grid-cols-3 grid-rows-3">
 								{colors.map((color, index) => (
 									<div
@@ -376,6 +329,91 @@ export default function CameraView() {
 								<path d="M7 5H5v14h2M17 5h2v14h-2" />
 							</svg>
 						</button>
+					</div>
+
+					<div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6">
+						{calibrationOpen ? (
+							<div className="w-64 rounded-xl border border-white/10 bg-black/85 p-4 text-white shadow-2xl backdrop-blur-xl">
+								<div className="mb-4 flex items-center justify-between">
+									<span className="text-xs font-semibold uppercase tracking-wider text-gray-300">
+										Color calibration
+									</span>
+
+									<button
+										onClick={() => {
+											setCalibrationOpen(false);
+											setCalibrationMessage("");
+										}}
+										className="text-gray-400 transition hover:text-white"
+									>
+										✕
+									</button>
+								</div>
+
+								<p className="mb-3 text-xs leading-relaxed text-gray-400">
+									Place a sticker of the selected color in the center square, then capture a sample.
+								</p>
+
+								<div className="grid grid-cols-3 gap-2">
+									{CALIBRATION_COLORS.map((color) => (
+										<button
+											key={color}
+											onClick={() => {
+												setSelectedColor(color);
+												setCalibrationMessage("");
+											}}
+											className={`flex items-center gap-2 rounded-lg border p-2 text-xs transition ${selectedColor === color
+												? "border-white/70 bg-white/15"
+												: "border-white/10 bg-white/5 hover:bg-white/10"
+												}`}
+										>
+											<span
+												className={`h-4 w-4 rounded-sm ${COLOR_INFO[color].className}`}
+											/>
+											{COLOR_INFO[color].label}
+										</button>
+									))}
+								</div>
+
+								<button
+									onClick={captureCalibration}
+									className="mt-4 w-full rounded-lg bg-white px-3 py-2.5 text-xs font-semibold text-black transition hover:bg-gray-200"
+								>
+									Capture sample
+								</button>
+
+								<button
+									onClick={resetCalibration}
+									className="mt-2 w-full rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 transition hover:bg-white/10"
+								>
+									Restore defaults
+								</button>
+
+								{calibrationMessage && (
+									<p className="mt-3 text-xs text-gray-300">
+										{calibrationMessage}
+									</p>
+								)}
+							</div>
+						) : (
+							<button
+								onClick={() => setCalibrationOpen(true)}
+								className="flex h-11 items-center gap-2 rounded-full border border-white/10 bg-black/65 px-4 text-sm font-medium text-white backdrop-blur-md transition hover:bg-black/85"
+							>
+								<svg
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="1.7"
+									className="h-5 w-5"
+								>
+									<path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+									<circle cx="12" cy="12" r="5" />
+									<circle cx="12" cy="12" r="1.5" />
+								</svg>
+								Calibrate
+							</button>
+						)}
 					</div>
 				</>
 			) : (
