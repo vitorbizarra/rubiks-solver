@@ -24,6 +24,11 @@ import {
 	resetCalibration as getDefaultCalibration,
 } from "@/lib/color-calibration";
 
+import {
+	calculateMotionRatio,
+	isNewFace,
+} from "@/lib/motion-detection";
+
 export default function CameraView() {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -49,6 +54,14 @@ export default function CameraView() {
 	const [selectedColor, setSelectedColor] =
 		useState<CalibratableColor>("red");
 	const [calibrationMessage, setCalibrationMessage] = useState("");
+
+	const [isMoving, setIsMoving] = useState(false);
+	const [faceChangeCount, setFaceChangeCount] = useState(0);
+
+	const previousFrameRef = useRef<ImageData | null>(null);
+	const lastMotionAtRef = useRef(0);
+	const motionActiveRef = useRef(false);
+	const lastStableColorsRef = useRef<CubeColor[] | null>(null);
 
 	const identifiedCount = colors.filter(
 		(color) => color !== "unknown"
@@ -237,6 +250,55 @@ export default function CameraView() {
 				}
 			}
 
+			const motionFrame = context.getImageData(
+				Math.floor(left),
+				Math.floor(top),
+				Math.floor(squareSize),
+				Math.floor(squareSize)
+			);
+
+			const previousFrame = previousFrameRef.current;
+			const now = performance.now();
+
+			if (previousFrame) {
+				const motionRatio = calculateMotionRatio(
+					motionFrame,
+					previousFrame
+				);
+
+				if (motionRatio > 0.28) {
+					lastMotionAtRef.current = now;
+
+					if (!motionActiveRef.current) {
+						motionActiveRef.current = true;
+						setIsMoving(true);
+					}
+				} else if (
+					motionActiveRef.current &&
+					now - lastMotionAtRef.current > 600
+				) {
+					motionActiveRef.current = false;
+					setIsMoving(false);
+
+					if (
+						isNewFace(
+							lastStableColorsRef.current,
+							detectedColors
+						)
+					) {
+						setFaceChangeCount((count) => count + 1);
+					}
+
+					lastStableColorsRef.current = detectedColors;
+				} else if (!motionActiveRef.current) {
+					lastStableColorsRef.current = detectedColors;
+				}
+			} else {
+				lastStableColorsRef.current = detectedColors;
+			}
+
+			previousFrameRef.current = motionFrame;
+
 			setColors(detectedColors);
 		};
 
@@ -276,9 +338,14 @@ export default function CameraView() {
 					</div>
 
 					<div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-2 backdrop-blur-md">
-						<span className="h-2 w-2 animate-pulse rounded-full bg-green-400" />
+						<span
+							className={`h-2 w-2 rounded-full ${isMoving
+								? "animate-pulse bg-amber-400"
+								: "bg-green-400"
+								}`}
+						/>
 						<span className="text-xs font-medium text-white">
-							Live
+							{isMoving ? "Moving" : "Stable"}
 						</span>
 					</div>
 
@@ -291,6 +358,10 @@ export default function CameraView() {
 							<span className="text-[10px] tabular-nums text-gray-400">
 								{identifiedCount}/9
 							</span>
+						</div>
+
+						<div className="mt-1 text-[10px] text-gray-400">
+							Face changes: {faceChangeCount}
 						</div>
 
 						<div
