@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -17,6 +16,8 @@ import type {
 	CubeFace,
 } from "@/lib/cube-types";
 
+import { validateCube } from "@/lib/cube-validation";
+
 const CubeScene = dynamic(
 	() => import("./CubeScene"),
 	{
@@ -33,6 +34,9 @@ export default function CubeEditor() {
 	const [cube, setCube] = useState(createEmptyCube);
 	const [selectedColor, setSelectedColor] =
 		useState<CubeColor>("white");
+
+	const [validation, setValidation] =
+		useState<ReturnType<typeof validateCube> | null>(null);
 
 	const filledCount = Object.values(cube)
 		.flat()
@@ -53,10 +57,17 @@ export default function CubeEditor() {
 				selectedColor
 			)
 		);
+
+		setValidation(null);
 	}
 
 	function handleReset() {
 		setCube(createEmptyCube());
+		setValidation(null);
+	}
+
+	function handleValidate() {
+		setValidation(validateCube(cube));
 	}
 
 	return (
@@ -181,6 +192,60 @@ export default function CubeEditor() {
 								style={{ width: `${progress}%` }}
 							/>
 						</div>
+					</div>
+
+					<div className="mt-8 border-t border-white/[0.07] pt-6">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-xs font-medium text-neutral-300">
+									Cube validation
+								</p>
+								<p className="mt-1 text-xs text-neutral-500">
+									Check your cube configuration
+								</p>
+							</div>
+						</div>
+
+						<button
+							type="button"
+							onClick={handleValidate}
+							disabled={filledCount !== 54}
+							className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-neutral-600"
+						>
+							Validate cube
+						</button>
+
+						{validation && (
+							<div className="mt-4">
+								{validation.valid ? (
+									<div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+										<p className="text-xs font-medium text-emerald-400">
+											Basic validation passed
+										</p>
+										<p className="mt-1 text-xs leading-relaxed text-neutral-400">
+											All stickers and center colors are correctly distributed.
+										</p>
+									</div>
+								) : (
+									<div className="rounded-lg border border-red-500/20 bg-red-500/[0.06] p-3">
+										<p className="text-xs font-medium text-red-400">
+											Validation failed
+										</p>
+
+										<ul className="mt-2 space-y-2">
+											{validation.errors.map((error) => (
+												<li
+													key={error}
+													className="text-xs leading-relaxed text-neutral-400"
+												>
+													{error}
+												</li>
+											))}
+										</ul>
+									</div>
+								)}
+							</div>
+						)}
 					</div>
 
 					<div className="mt-auto pt-10">
