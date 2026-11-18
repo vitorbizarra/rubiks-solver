@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { CubeNet } from "@/components/CubeNet";
+import { SolutionGuide } from "@/components/SolutionGuide";
 
 import {
 	CALIBRATION_COLORS,
@@ -32,6 +33,12 @@ import {
 } from "@/lib/motion-detection";
 
 import { FACE_ORDER } from "@/lib/face-capture-guide";
+
+import { normalizeCubeColors } from "@/lib/cube-normalization";
+import {
+	solveCube,
+	type CubeSolution,
+} from "@/lib/cube-solver";
 
 import { useFaceCapture } from "@/hooks/use-face-capture";
 
@@ -73,6 +80,10 @@ export default function CameraView() {
 	const [motionLevel, setMotionLevel] = useState(0);
 	const [isCameraMoving, setIsCameraMoving] = useState(false);
 
+	const [solution, setSolution] = useState<CubeSolution | null>(null);
+	const [solveError, setSolveError] = useState("");
+	const [isSolving, setIsSolving] = useState(false);
+
 	const identifiedCount = colors.filter(
 		(color) => color !== "unknown"
 	).length;
@@ -88,6 +99,35 @@ export default function CameraView() {
 		resetLastFace,
 		resetFaceCapture,
 	} = useFaceCapture(colors);
+
+	async function handleSolveCube() {
+		if (!cubeValid || isSolving) return;
+
+		setIsSolving(true);
+		setSolveError("");
+		setSolution(null);
+
+		await new Promise<void>((resolve) => {
+			window.setTimeout(resolve, 50);
+		});
+
+		try {
+			const normalizedCube = normalizeCubeColors(capturedFaces);
+			const result = solveCube(normalizedCube.facelets);
+
+			setSolution(result);
+		} catch (err) {
+			console.error("Cube solving failed:", err);
+
+			setSolveError(
+				err instanceof Error
+					? err.message
+					: "An unexpected error occurred while solving the cube."
+			);
+		} finally {
+			setIsSolving(false);
+		}
+	}
 
 	useEffect(() => {
 		saveCalibration(calibration);
@@ -230,7 +270,7 @@ export default function CameraView() {
 				sourceHeight = video.videoWidth / targetRatio;
 				sourceY = (video.videoHeight - sourceHeight) / 2;
 			}
-			
+
 
 			context.drawImage(
 				video,
@@ -518,8 +558,8 @@ export default function CameraView() {
 						{capturedFaces.length === 6 && (
 							<div
 								className={`mt-3 rounded-lg border p-3 ${cubeValid
-										? "border-green-500/30 bg-green-500/10"
-										: "border-red-500/30 bg-red-500/10"
+									? "border-green-500/30 bg-green-500/10"
+									: "border-red-500/30 bg-red-500/10"
 									}`}
 							>
 								<div className="flex items-center gap-2">
@@ -612,7 +652,63 @@ export default function CameraView() {
 									</p>
 
 									<button
-										onClick={resetFaceCapture}
+										onClick={handleSolveCube}
+										disabled={!cubeValid || isSolving}
+										className="w-full rounded-lg bg-blue-500 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-40"
+									>
+										{isSolving ? "Solving cube..." : "Solve cube"}
+									</button>
+
+									{solveError && (
+										<div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+											<p className="text-xs font-semibold text-red-300">
+												Unable to solve cube
+											</p>
+											<p className="mt-1 text-[11px] leading-relaxed text-red-200">
+												{solveError}
+											</p>
+										</div>
+									)}
+
+									{solution && (
+										<div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
+											<div className="flex items-center justify-between">
+												<span className="text-xs font-semibold text-green-300">
+													Solution found
+												</span>
+												<span className="text-[10px] text-green-200">
+													{solution.moveCount} moves
+												</span>
+											</div>
+
+											<div className="mt-3 flex flex-wrap gap-1">
+												{solution.moves.map((move, index) => (
+													<span
+														key={`${move}-${index}`}
+														className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs font-mono text-white"
+													>
+														{move}
+													</span>
+												))}
+											</div>
+
+											<button
+												onClick={() => {
+													navigator.clipboard.writeText(solution.algorithm);
+												}}
+												className="mt-3 w-full rounded-lg border border-white/15 px-3 py-2 text-xs text-gray-200 transition hover:bg-white/10"
+											>
+												Copy solution
+											</button>
+										</div>
+									)}
+
+									<button
+										onClick={() => {
+											resetFaceCapture();
+											setSolution(null);
+											setSolveError("");
+										}}
 										className="w-full rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 transition hover:bg-white/10"
 									>
 										Reset capture
@@ -621,6 +717,12 @@ export default function CameraView() {
 							)}
 						</div>
 					</div>
+
+					{solution && (
+						<div className="absolute left-4 top-4 w-64 rounded-xl border border-white/10 bg-black/75 p-3 shadow-2xl backdrop-blur-md sm:right-6 sm:top-6 sm:w-72">
+							<SolutionGuide moves={solution.moves} />
+						</div>
+					)}
 
 					<div className="absolute bottom-4 left-4 flex items-center gap-2 sm:bottom-6 sm:left-6">
 						<button
