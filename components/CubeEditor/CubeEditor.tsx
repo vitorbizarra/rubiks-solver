@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { RotateCcw } from "lucide-react";
+import {
+	RotateCcw,
+	ChevronLeft,
+	ChevronRight,
+} from "lucide-react";
 
 import ColorPalette from "./ColorPalette";
 
@@ -17,6 +21,10 @@ import type {
 } from "@/lib/cube-types";
 
 import { validateCube } from "@/lib/cube-validation";
+
+import { cubeToFacelets } from "@/lib/cube-to-facelets";
+
+import { getCubeAtMove } from "@/lib/cube-playback";
 
 const CubeScene = dynamic(
 	() => import("./CubeScene"),
@@ -37,6 +45,31 @@ export default function CubeEditor() {
 
 	const [validation, setValidation] =
 		useState<ReturnType<typeof validateCube> | null>(null);
+
+	const [solution, setSolution] = useState<string[] | null>(null);
+	const [isSolving, setIsSolving] = useState(false);
+	const [solveError, setSolveError] = useState<string | null>(null);
+
+	const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
+
+	const [playbackStates, setPlaybackStates] =
+		useState<string[] | null>(null);
+
+	const playbackCube = useMemo(() => {
+		if (!solution) {
+			return cube;
+		}
+
+		if (!playbackStates) {
+			return cube;
+		}
+
+		return getCubeAtMove(
+			cube,
+			playbackStates,
+			currentMoveIndex
+		);
+	}, [cube, solution, playbackStates, currentMoveIndex]);
 
 	const filledCount = Object.values(cube)
 		.flat()
@@ -59,15 +92,79 @@ export default function CubeEditor() {
 		);
 
 		setValidation(null);
+		setSolution(null);
+		setCurrentMoveIndex(0);
+		setSolveError(null);
+		setPlaybackStates(null);
 	}
 
 	function handleReset() {
 		setCube(createEmptyCube());
 		setValidation(null);
+		setSolution(null);
+		setCurrentMoveIndex(0);
+		setSolveError(null);
+		setPlaybackStates(null);
 	}
 
 	function handleValidate() {
 		setValidation(validateCube(cube));
+	}
+
+	async function handleSolve() {
+		if (!validation?.valid) {
+			return;
+		}
+
+		setIsSolving(true);
+		setSolveError(null);
+		setSolution(null);
+
+		try {
+			const facelets = cubeToFacelets(cube);
+
+			const response = await fetch("/api/solve", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ facelets }),
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error ?? "Failed to solve the cube.");
+			}
+
+			setSolution(data.moves);
+			setPlaybackStates(data.states);
+			setCurrentMoveIndex(0);
+		} catch (error) {
+			setSolveError(
+				error instanceof Error
+					? error.message
+					: "An unexpected error occurred."
+			);
+		} finally {
+			setIsSolving(false);
+		}
+	}
+
+	function handlePreviousMove() {
+		setCurrentMoveIndex((current) =>
+			Math.max(0, current - 1)
+		);
+	}
+
+	function handleNextMove() {
+		setCurrentMoveIndex((current) =>
+			Math.min((solution?.length ?? 0) - 1, current + 1)
+		);
+	}
+
+	function handleRestartSolution() {
+		setCurrentMoveIndex(0);
 	}
 
 	return (
@@ -124,7 +221,7 @@ export default function CubeEditor() {
 
 					<div className="relative min-h-[440px] flex-1 overflow-hidden bg-[radial-gradient(ellipse_at_center,#252525_0%,#171717_48%,#101010_100%)] lg:min-h-[600px]">
 						<CubeScene
-							cube={cube}
+							cube={playbackCube}
 							onStickerClick={handleStickerClick}
 						/>
 
@@ -246,6 +343,124 @@ export default function CubeEditor() {
 								)}
 							</div>
 						)}
+
+						{validation?.valid && (
+							<button
+								type="button"
+								onClick={handleSolve}
+								disabled={isSolving}
+								className="mt-3 flex h-11 w-full items-center justify-center rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-wait disabled:opacity-50"
+							>
+								{isSolving ? "Solving cube..." : "Solve cube"}
+							</button>
+						)}
+
+						{solveError && (
+							<p className="mt-3 text-xs leading-relaxed text-red-400">
+								{solveError}
+							</p>
+						)}
+
+
+						{solution && (
+							<div className="mt-5 border-t border-white/[0.07] pt-5">
+								<div className="flex items-center justify-between">
+									<p className="text-xs font-medium text-neutral-300">
+										Solution
+									</p>
+
+									<span className="text-xs tabular-nums text-neutral-500">
+										{currentMoveIndex} / {solution.length} completed
+									</span>
+								</div>
+
+								{solution.length === 0 ? (
+									<div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+										<p className="text-xs font-medium text-emerald-400">
+											Cube already solved
+										</p>
+										<p className="mt-1 text-xs text-neutral-400">
+											No moves are necessary.
+										</p>
+									</div>
+								) : currentMoveIndex >= solution.length ? (
+									<div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+										<p className="text-xs font-medium text-emerald-400">
+											Solution completed
+										</p>
+										<p className="mt-1 text-xs text-neutral-400">
+											All moves have been completed.
+										</p>
+									</div>
+								) : (
+									<>
+										<div className="mt-4 rounded-lg bg-white/[0.05] p-4">
+											<p className="text-[10px] tracking-[0.15em] text-neutral-500 uppercase">
+												Current move
+											</p>
+
+											<p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">
+												{solution[currentMoveIndex]}
+											</p>
+
+											<p className="mt-2 text-xs text-neutral-500">
+												Move {currentMoveIndex + 1} of {solution.length}
+											</p>
+										</div>
+
+										<div className="mt-4 flex gap-2">
+											<button
+												type="button"
+												onClick={handlePreviousMove}
+												disabled={currentMoveIndex === 0}
+												className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-white/10 text-xs text-neutral-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
+											>
+												<ChevronLeft size={15} />
+												Previous
+											</button>
+
+											<button
+												type="button"
+												onClick={handleNextMove}
+												className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200"
+											>
+												Next
+												<ChevronRight size={15} />
+											</button>
+										</div>
+									</>
+								)}
+
+								<div className="mt-4 flex flex-wrap gap-2">
+									{solution.map((move, index) => (
+										<button
+											key={`${move}-${index}`}
+											type="button"
+											onClick={() => setCurrentMoveIndex(index)}
+											className={`rounded-md border px-3 py-2 text-sm font-medium tabular-nums transition ${index === currentMoveIndex
+												? "border-white/40 bg-white text-black"
+												: index < currentMoveIndex
+													? "border-white/10 bg-white/[0.08] text-neutral-500"
+													: "border-white/10 bg-white/[0.03] text-neutral-300 hover:bg-white/[0.08]"
+												}`}
+										>
+											{move}
+										</button>
+									))}
+								</div>
+
+								<button
+									type="button"
+									onClick={handleRestartSolution}
+									disabled={currentMoveIndex === 0}
+									className="mt-4 flex items-center gap-2 text-xs text-neutral-500 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+								>
+									<RotateCcw size={13} />
+									Restart solution
+								</button>
+							</div>
+						)}
+
 					</div>
 
 					<div className="mt-auto pt-10">
