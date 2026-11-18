@@ -1,10 +1,5 @@
-
-import CameraView from "@/components/CameraView";
+import CubeEditor from "@/components/CubeEditor/CubeEditor";
 
 export default function Home() {
-	return (
-		<main className="h-dvh w-screen overflow-hidden bg-black">
-			<CameraView />
-		</main>
-	);
+	return <CubeEditor />;
 }
