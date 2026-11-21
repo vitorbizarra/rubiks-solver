@@ -10,6 +10,11 @@ import type {
 	CubeState,
 } from "@/lib/cube-types";
 
+const CAMERA_SETTINGS = {
+	position: [5, 4, 6] as [number, number, number],
+	fov: 40,
+};
+
 type CubeSceneProps = {
 	cube: CubeState;
 	onStickerClick: (face: CubeFaceType, index: number) => void;
@@ -53,10 +58,7 @@ export default function CubeScene({
 }: CubeSceneProps) {
 	return (
 		<Canvas
-			camera={{
-				position: [5, 4, 6],
-				fov: 40,
-			}}
+			camera={CAMERA_SETTINGS}
 			dpr={[1, 2]}
 		>
 			<color attach="background" args={["#111111"]} />

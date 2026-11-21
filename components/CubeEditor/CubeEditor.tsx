@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -56,11 +57,7 @@ export default function CubeEditor() {
 		useState<string[] | null>(null);
 
 	const playbackCube = useMemo(() => {
-		if (!solution) {
-			return cube;
-		}
-
-		if (!playbackStates) {
+		if (!solution || !playbackStates) {
 			return cube;
 		}
 
@@ -151,6 +148,13 @@ export default function CubeEditor() {
 		}
 	}
 
+	function handleBackToEditor() {
+		setSolution(null);
+		setPlaybackStates(null);
+		setCurrentMoveIndex(0);
+		setSolveError(null);
+	}
+
 	function handlePreviousMove() {
 		setCurrentMoveIndex((current) =>
 			Math.max(0, current - 1)
@@ -159,7 +163,7 @@ export default function CubeEditor() {
 
 	function handleNextMove() {
 		setCurrentMoveIndex((current) =>
-			Math.min((solution?.length ?? 0) - 1, current + 1)
+			Math.min(solution?.length ?? 0, current + 1)
 		);
 	}
 
@@ -206,7 +210,7 @@ export default function CubeEditor() {
 							01 / Workspace
 						</p>
 						<h1 className="mt-2 text-lg font-medium tracking-tight text-neutral-100">
-							Paint your cube
+							{solution ? "Solving your cube" : "Paint your cube"}
 						</h1>
 					</div>
 
@@ -234,136 +238,165 @@ export default function CubeEditor() {
 				</section>
 
 				<aside className="flex flex-col px-6 py-7 sm:px-8 lg:px-7">
-					<div>
-						<p className="text-[10px] font-semibold tracking-[0.18em] text-neutral-500 uppercase">
-							02 / Configuration
-						</p>
-
-						<h2 className="mt-3 text-xl font-medium tracking-tight">
-							Sticker colors
-						</h2>
-
-						<p className="mt-2 text-sm leading-relaxed text-neutral-500">
-							Choose a color, then select a square on the cube to paint it.
-						</p>
-					</div>
-
-					<div className="mt-9">
-						<div className="mb-4 flex items-center justify-between">
-							<span className="text-xs font-medium text-neutral-300">
-								Color palette
-							</span>
-							<span className="text-[10px] text-neutral-600">
-								6 COLORS
-							</span>
-						</div>
-
-						<ColorPalette
-							selectedColor={selectedColor}
-							onSelectColor={setSelectedColor}
-						/>
-					</div>
-
-					<div className="mt-9 border-t border-white/[0.07] pt-6">
-						<div className="flex items-end justify-between">
+					{!solution ? (
+						<>
 							<div>
-								<p className="text-xs font-medium text-neutral-300">
-									Cube progress
+								<p className="text-[10px] font-semibold tracking-[0.18em] text-neutral-500 uppercase">
+									02 / Configuration
 								</p>
-								<p className="mt-1 text-xs text-neutral-500">
-									Stickers painted
+
+								<h2 className="mt-3 text-xl font-medium tracking-tight">
+									Sticker colors
+								</h2>
+
+								<p className="mt-2 text-sm leading-relaxed text-neutral-500">
+									Choose a color, then select a square on the cube to paint it.
 								</p>
 							</div>
 
-							<p className="text-lg font-medium tabular-nums">
-								{filledCount}
-								<span className="text-sm text-neutral-600">
-									{" "}/ 54
-								</span>
-							</p>
-						</div>
+							<div className="mt-9">
+								<div className="mb-4 flex items-center justify-between">
+									<span className="text-xs font-medium text-neutral-300">
+										Color palette
+									</span>
+									<span className="text-[10px] text-neutral-600">
+										6 COLORS
+									</span>
+								</div>
 
-						<div className="mt-4 h-1 overflow-hidden rounded-full bg-white/[0.08]">
-							<div
-								className="h-full rounded-full bg-white transition-[width] duration-300"
-								style={{ width: `${progress}%` }}
-							/>
-						</div>
-					</div>
-
-					<div className="mt-8 border-t border-white/[0.07] pt-6">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-xs font-medium text-neutral-300">
-									Cube validation
-								</p>
-								<p className="mt-1 text-xs text-neutral-500">
-									Check your cube configuration
-								</p>
+								<ColorPalette
+									selectedColor={selectedColor}
+									onSelectColor={setSelectedColor}
+								/>
 							</div>
-						</div>
 
-						<button
-							type="button"
-							onClick={handleValidate}
-							disabled={filledCount !== 54}
-							className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-neutral-600"
-						>
-							Validate cube
-						</button>
-
-						{validation && (
-							<div className="mt-4">
-								{validation.valid ? (
-									<div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
-										<p className="text-xs font-medium text-emerald-400">
-											Basic validation passed
+							<div className="mt-9 border-t border-white/[0.07] pt-6">
+								<div className="flex items-end justify-between">
+									<div>
+										<p className="text-xs font-medium text-neutral-300">
+											Cube progress
 										</p>
-										<p className="mt-1 text-xs leading-relaxed text-neutral-400">
-											All stickers and center colors are correctly distributed.
+										<p className="mt-1 text-xs text-neutral-500">
+											Stickers painted
 										</p>
 									</div>
-								) : (
-									<div className="rounded-lg border border-red-500/20 bg-red-500/[0.06] p-3">
-										<p className="text-xs font-medium text-red-400">
-											Validation failed
-										</p>
 
-										<ul className="mt-2 space-y-2">
-											{validation.errors.map((error) => (
-												<li
-													key={error}
-													className="text-xs leading-relaxed text-neutral-400"
-												>
-													{error}
-												</li>
-											))}
-										</ul>
+									<p className="text-lg font-medium tabular-nums">
+										{filledCount}
+										<span className="text-sm text-neutral-600">
+											{" "}/ 54
+										</span>
+									</p>
+								</div>
+
+								<div className="mt-4 h-1 overflow-hidden rounded-full bg-white/[0.08]">
+									<div
+										className="h-full rounded-full bg-white transition-[width] duration-300"
+										style={{ width: `${progress}%` }}
+									/>
+								</div>
+							</div>
+
+							<div className="mt-8 border-t border-white/[0.07] pt-6">
+								<div className="flex items-center justify-between">
+									<div>
+										<p className="text-xs font-medium text-neutral-300">
+											Cube validation
+										</p>
+										<p className="mt-1 text-xs text-neutral-500">
+											Check your cube configuration
+										</p>
+									</div>
+								</div>
+
+								<button
+									type="button"
+									onClick={handleValidate}
+									disabled={filledCount !== 54}
+									className="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-neutral-600"
+								>
+									Validate cube
+								</button>
+
+								{validation && (
+									<div className="mt-4">
+										{validation.valid ? (
+											<div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+												<p className="text-xs font-medium text-emerald-400">
+													Basic validation passed
+												</p>
+												<p className="mt-1 text-xs leading-relaxed text-neutral-400">
+													All stickers and center colors are correctly distributed.
+												</p>
+											</div>
+										) : (
+											<div className="rounded-lg border border-red-500/20 bg-red-500/[0.06] p-3">
+												<p className="text-xs font-medium text-red-400">
+													Validation failed
+												</p>
+
+												<ul className="mt-2 space-y-2">
+													{validation.errors.map((error) => (
+														<li
+															key={error}
+															className="text-xs leading-relaxed text-neutral-400"
+														>
+															{error}
+														</li>
+													))}
+												</ul>
+											</div>
+										)}
 									</div>
 								)}
+
+								{validation?.valid && (
+									<button
+										type="button"
+										onClick={handleSolve}
+										disabled={isSolving}
+										className="mt-3 flex h-11 w-full items-center justify-center rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-wait disabled:opacity-50"
+									>
+										{isSolving ? "Solving cube..." : "Solve cube"}
+									</button>
+								)}
+
+								{solveError && (
+									<p className="mt-3 text-xs leading-relaxed text-red-400">
+										{solveError}
+									</p>
+								)}
 							</div>
-						)}
 
-						{validation?.valid && (
-							<button
-								type="button"
-								onClick={handleSolve}
-								disabled={isSolving}
-								className="mt-3 flex h-11 w-full items-center justify-center rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-wait disabled:opacity-50"
-							>
-								{isSolving ? "Solving cube..." : "Solve cube"}
-							</button>
-						)}
+							<div className="mt-auto pt-10">
+								<div className="flex items-center gap-2 text-xs text-neutral-600">
+									<span className="size-1.5 rounded-full bg-emerald-500/70" />
+									<span>Changes are saved in this session</span>
+								</div>
+							</div>
+						</>
+					) : (
+						<>
+							<div>
+								<p className="text-[10px] font-semibold tracking-[0.18em] text-neutral-500 uppercase">
+									02 / Solution
+								</p>
 
-						{solveError && (
-							<p className="mt-3 text-xs leading-relaxed text-red-400">
-								{solveError}
-							</p>
-						)}
+								<h2 className="mt-3 text-xl font-medium tracking-tight">
+									Solution steps
+								</h2>
 
+								<button
+									type="button"
+									onClick={handleBackToEditor}
+									className="mt-5 flex items-center gap-2 text-xs font-medium text-neutral-400 transition hover:text-white"
+								>
+									<ChevronLeft size={15} />
+									Back to editor
+								</button>
+							</div>
 
-						{solution && (
-							<div className="mt-5 border-t border-white/[0.07] pt-5">
+							<div className="mt-8 border-t border-white/[0.07] pt-5">
 								<div className="flex items-center justify-between">
 									<p className="text-xs font-medium text-neutral-300">
 										Solution
@@ -422,7 +455,8 @@ export default function CubeEditor() {
 											<button
 												type="button"
 												onClick={handleNextMove}
-												className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200"
+												disabled={currentMoveIndex >= solution.length}
+												className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-white text-xs font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-30"
 											>
 												Next
 												<ChevronRight size={15} />
@@ -431,44 +465,40 @@ export default function CubeEditor() {
 									</>
 								)}
 
-								<div className="mt-4 flex flex-wrap gap-2">
-									{solution.map((move, index) => (
+								{solution.length > 0 && (
+									<>
+										<div className="mt-4 flex flex-wrap gap-2">
+											{solution.map((move, index) => (
+												<button
+													key={`${move}-${index}`}
+													type="button"
+													onClick={() => setCurrentMoveIndex(index)}
+													className={`rounded-md border px-3 py-2 text-sm font-medium tabular-nums transition ${index === currentMoveIndex
+														? "border-white/40 bg-white text-black"
+														: index < currentMoveIndex
+															? "border-white/10 bg-white/[0.08] text-neutral-500"
+															: "border-white/10 bg-white/[0.03] text-neutral-300 hover:bg-white/[0.08]"
+														}`}
+												>
+													{move}
+												</button>
+											))}
+										</div>
+
 										<button
-											key={`${move}-${index}`}
 											type="button"
-											onClick={() => setCurrentMoveIndex(index)}
-											className={`rounded-md border px-3 py-2 text-sm font-medium tabular-nums transition ${index === currentMoveIndex
-												? "border-white/40 bg-white text-black"
-												: index < currentMoveIndex
-													? "border-white/10 bg-white/[0.08] text-neutral-500"
-													: "border-white/10 bg-white/[0.03] text-neutral-300 hover:bg-white/[0.08]"
-												}`}
+											onClick={handleRestartSolution}
+											disabled={currentMoveIndex === 0}
+											className="mt-4 flex items-center gap-2 text-xs text-neutral-500 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
 										>
-											{move}
+											<RotateCcw size={13} />
+											Restart solution
 										</button>
-									))}
-								</div>
-
-								<button
-									type="button"
-									onClick={handleRestartSolution}
-									disabled={currentMoveIndex === 0}
-									className="mt-4 flex items-center gap-2 text-xs text-neutral-500 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-								>
-									<RotateCcw size={13} />
-									Restart solution
-								</button>
+									</>
+								)}
 							</div>
-						)}
-
-					</div>
-
-					<div className="mt-auto pt-10">
-						<div className="flex items-center gap-2 text-xs text-neutral-600">
-							<span className="size-1.5 rounded-full bg-emerald-500/70" />
-							<span>Changes are saved in this session</span>
-						</div>
-					</div>
+						</>
+					)}
 				</aside>
 			</div>
 		</main>
