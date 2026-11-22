@@ -191,16 +191,6 @@ export default function CubeEditor() {
 						</p>
 					</div>
 				</div>
-
-				<button
-					type="button"
-					onClick={handleReset}
-					className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-neutral-400 transition hover:bg-white/[0.06] hover:text-white"
-				>
-					<RotateCcw size={14} />
-					<span className="hidden sm:inline">Reset cube</span>
-					<span className="sm:hidden">Reset</span>
-				</button>
 			</header>
 
 			<div className="mx-auto grid w-full max-w-[1440px] flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -295,9 +285,19 @@ export default function CubeEditor() {
 										style={{ width: `${progress}%` }}
 									/>
 								</div>
+
+								<button
+									type="button"
+									onClick={handleReset}
+									className=" ml-auto mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-neutral-400 transition hover:bg-white/[0.06] hover:text-white"
+								>
+									<RotateCcw size={14} />
+									<span className="hidden sm:inline">Reset cube</span>
+									<span className="sm:hidden">Reset</span>
+								</button>
 							</div>
 
-							<div className="mt-8 border-t border-white/[0.07] pt-6">
+							<div className="mt-2 border-t border-white/[0.07] pt-6">
 								<div className="flex items-center justify-between">
 									<div>
 										<p className="text-xs font-medium text-neutral-300">
@@ -396,7 +396,7 @@ export default function CubeEditor() {
 								</button>
 							</div>
 
-							<div className="mt-8 border-t border-white/[0.07] pt-5">
+							<div className="mt-4 border-t border-white/[0.07] pt-5">
 								<div className="flex items-center justify-between">
 									<p className="text-xs font-medium text-neutral-300">
 										Solution
