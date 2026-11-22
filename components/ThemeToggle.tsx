@@ -1,17 +1,20 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
+const subscribe = () => () => { };
+
 export default function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false
+  );
 
   if (!mounted) {
     return (
@@ -19,7 +22,7 @@ export default function ThemeToggle() {
         type="button"
         aria-label="Change theme"
         disabled
-        className="flex size-9 items-center justify-center rounded-lg border border-white/10 text-neutral-400 opacity-50"
+        className="flex size-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 opacity-50 dark:border-white/10"
       >
         <Sun size={16} />
       </button>

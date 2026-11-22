@@ -12,8 +12,6 @@ import type {
   CubeState,
 } from "@/lib/cube-types";
 
-import { useEffect, useState } from "react";
-
 const CAMERA_SETTINGS = {
   position: [5, 4, 6] as [number, number, number],
   fov: 40,
@@ -63,13 +61,7 @@ export default function CubeScene({
   onStickerClick,
 }: CubeSceneProps) {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isDark = !mounted || resolvedTheme === "dark";
+  const isDark = resolvedTheme !== "light";
   const background = isDark ? "#111111" : "#e5e5e5";
 
   return (
