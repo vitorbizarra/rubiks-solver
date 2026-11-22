@@ -183,7 +183,7 @@ export default function CubeEditor() {
 
           <div>
             <p className="text-sm font-semibold tracking-tight">
-              Cube Solver
+              Rubik&apos;s Solver
             </p>
             <p className="text-[10px] tracking-[0.12em] text-neutral-500 uppercase">
               Cube editor

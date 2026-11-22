@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cube Solver",
+  title: "Rubik's Solver",
   description: "Build, validate and solve your Rubik's Cube with an interactive 3D editor and step-by-step solution.",
 };
 
